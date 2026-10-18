@@ -4,6 +4,7 @@ const scopes = [
   "service", // the worker under src/ and its tests
   "ci",
   "deps",
+  "deps-dev", // Dependabot's updates to development dependencies
 ];
 
 /** @type {import('@commitlint/types').UserConfig} */
