@@ -17,7 +17,7 @@ function json(status: number, body: unknown): Response {
 
 /** The issue a report becomes, and the repository it goes in, or a reason it is not a report. */
 function toIssue(input: unknown): { repo: string; title: string; body: string; labels: string[] } | string {
-  // Woodshed 0.4 and earlier send no app field.
+  // Woodshed sends its own format, with no app field.
   if (typeof input === "object" && input !== null && !("app" in input)) {
     const report = parseWoodshedReport(input);
     return typeof report === "string" ? report : { repo: "woodshed", ...woodshedIssue(report) };
