@@ -24,7 +24,6 @@ issue's number and address. Nothing else is served.
 
 - `app` is `callie`, `jot` or `woodshed`; `kind` is `bug` or `idea`. `note`, `details` and `logs`
   are optional.
-- A report without `app` is read in Woodshed's own format, and filed in greylocklabs/woodshed.
 - Each address may send five reports a minute. Text is defused so a report cannot mention anyone or
   reference other issues, and logs go in a folded code block.
 

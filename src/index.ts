@@ -1,6 +1,5 @@
 import { createIssue } from "./github.ts";
 import { LIMITS, issueFor, parseReport } from "./report.ts";
-import { parseWoodshedReport, woodshedIssue } from "./woodshed.ts";
 
 export interface Env {
   GITHUB_APP_ID: string;
@@ -13,17 +12,6 @@ export interface Env {
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-/** The issue a report becomes, and the repository it goes in, or a reason it is not a report. */
-function toIssue(input: unknown): { repo: string; title: string; body: string; labels: string[] } | string {
-  // Woodshed sends its own format, with no app field.
-  if (typeof input === "object" && input !== null && !("app" in input)) {
-    const report = parseWoodshedReport(input);
-    return typeof report === "string" ? report : { repo: "woodshed", ...woodshedIssue(report) };
-  }
-  const report = parseReport(input);
-  return typeof report === "string" ? report : issueFor(report);
 }
 
 /** POST /report files a report from an app as a GitHub issue. Nothing else is served. */
@@ -44,10 +32,10 @@ export async function handle(request: Request, env: Env, fetcher: typeof fetch =
   } catch {
     return json(400, { error: "not JSON" });
   }
-  const issue = toIssue(input);
-  if (typeof issue === "string") return json(400, { error: issue });
+  const report = parseReport(input);
+  if (typeof report === "string") return json(400, { error: report });
 
-  const { repo, ...content } = issue;
+  const { repo, ...content } = issueFor(report);
   try {
     const filed = await createIssue(
       {
