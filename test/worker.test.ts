@@ -2,18 +2,17 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { appJwt, createIssue, forgetToken } from "../src/github.ts";
 import { type Env, handle } from "../src/index.ts";
-import { issueFor as generalIssue, parseReport as parseGeneral } from "../src/report.ts";
-import { parseWoodshedReport as parseReport, woodshedIssue as issueFor } from "../src/woodshed.ts";
+import { issueFor, parseReport } from "../src/report.ts";
 
 const report = {
-  subject: "TUNE",
-  problem: "Wrong key",
-  item: "Solar",
-  id: "solar",
-  details: [["Key", "concert C minor"]],
-  note: "It's C minor, but @someone said D.",
-  appVersion: "0.1.0",
-  androidVersion: "16",
+  app: "callie",
+  kind: "bug",
+  summary: "Week view skips a day",
+  note: "Thursday is missing after @someone's invite.",
+  details: [["View", "week"]],
+  logs: "sync: ok\n``` not a fence\nrender: failed",
+  appVersion: "0.5.8",
+  platform: "Fedora Linux 44",
 };
 
 async function keyPair() {
@@ -58,49 +57,6 @@ const post = (body: unknown) =>
 
 beforeEach(() => forgetToken());
 
-describe("woodshed reports", () => {
-  it("become the same issue the app's GitHub link opens, marked as sent from the app", () => {
-    const parsed = parseReport(report);
-    if (typeof parsed === "string") throw new Error(parsed);
-    const issue = issueFor(parsed);
-    assert.equal(issue.title, 'Wrong key in "Solar"');
-    assert.ok(issue.body.includes("**Tune:** Solar (`solar`)"));
-    assert.ok(issue.body.includes("- Key: concert C minor"));
-    assert.ok(issue.body.includes("Woodshed 0.1.0, Android 16"));
-    assert.deepEqual(issue.labels, ["bug", "from-app"]);
-    assert.deepEqual(issueFor({ ...parsed, subject: "APP", problem: "An idea" }).labels, ["enhancement", "from-app"]);
-  });
-
-  it("cannot mention people or break out of code spans", () => {
-    const parsed = parseReport({ ...report, id: "x` @evil `y" });
-    if (typeof parsed === "string") throw new Error(parsed);
-    const { body } = issueFor(parsed);
-    assert.doesNotMatch(body, /@someone|@evil/);
-    assert.ok(body.includes("(`x  @\u200bevil  y`)"));
-  });
-
-  it("cannot reference other issues or repositories", () => {
-    const parsed = parseReport({ ...report, note: "Like #12, other/repo#3, GH-4 and https://github.com/a/b/issues/5", item: "See #9" });
-    if (typeof parsed === "string") throw new Error(parsed);
-    const { title, body } = issueFor(parsed);
-    for (const text of [title, body]) {
-      assert.doesNotMatch(text, /#\d|GH-\d|github\.com/i);
-    }
-    assert.ok(body.includes("other/repo#\u200b3"));
-  });
-
-  it("are refused when malformed or oversized", () => {
-    assert.equal(typeof parseReport(null), "string");
-    assert.equal(parseReport({ ...report, subject: "PLAYLIST" }), "unknown subject");
-    // Names every object inherits are not subjects either.
-    for (const subject of ["constructor", "toString", "__proto__"]) assert.equal(parseReport({ ...report, subject }), "unknown subject");
-    assert.equal(parseReport({ ...report, problem: "" }), "missing or overlong problem");
-    assert.equal(parseReport({ ...report, note: "x".repeat(1_501) }), "overlong item, id or note");
-    assert.equal(parseReport({ ...report, details: [["only one"]] }), "details must be [label, value] pairs");
-    assert.equal(parseReport({ ...report, appVersion: undefined }), "missing versions");
-  });
-});
-
 describe("the GitHub app", () => {
   it("signs a JWT GitHub can verify with the app's public key", async () => {
     const { pem, publicKey } = await keyPair();
@@ -142,29 +98,18 @@ describe("the endpoint", () => {
     assert.equal((await handle(new Request("https://reports.example/"), env(pem), fetcher)).status, 404);
     assert.equal((await handle(new Request("https://reports.example/report"), env(pem), fetcher)).status, 405);
     assert.equal((await handle(post("{not json"), env(pem), fetcher)).status, 400);
-    assert.equal((await handle(post({ ...report, subject: "?" }), env(pem), fetcher)).status, 400);
+    assert.equal((await handle(post({ ...report, kind: "?" }), env(pem), fetcher)).status, 400);
     assert.equal((await handle(post("x".repeat(40_000)), env(pem), fetcher)).status, 413);
     assert.equal((await handle(post(report), env(pem, false), fetcher)).status, 429);
     assert.equal((await handle(post(report), env(pem), fakeGitHub(500).fetcher)).status, 502);
   });
 });
 
-const general = {
-  app: "callie",
-  kind: "bug",
-  summary: "Week view skips a day",
-  note: "Thursday is missing after @someone's invite.",
-  details: [["View", "week"]],
-  logs: "sync: ok\n``` not a fence\nrender: failed",
-  appVersion: "0.5.8",
-  platform: "Fedora Linux 44",
-};
-
 describe("reports from any app", () => {
   it("become an issue in the app's repository, with the logs folded away", () => {
-    const parsed = parseGeneral(general);
+    const parsed = parseReport(report);
     if (typeof parsed === "string") throw new Error(parsed);
-    const issue = generalIssue(parsed);
+    const issue = issueFor(parsed);
     assert.equal(issue.repo, "callie");
     assert.equal(issue.title, "Week view skips a day");
     assert.ok(issue.body.startsWith("**What happened:**"));
@@ -174,34 +119,44 @@ describe("reports from any app", () => {
     assert.equal(issue.body.split("```").length, 3, "the logs cannot close their own code block");
     assert.ok(issue.body.includes("Callie 0.5.8, Fedora Linux 44"));
     assert.deepEqual(issue.labels, ["bug", "from-app"]);
-    const idea = generalIssue({ ...parsed, kind: "idea", logs: undefined });
+    const idea = issueFor({ ...parsed, kind: "idea", logs: undefined });
     assert.ok(idea.body.startsWith("**The idea:**"));
     assert.deepEqual(idea.labels, ["enhancement", "from-app"]);
     assert.doesNotMatch(idea.body, /Logs/);
   });
 
-  it("are refused for unknown apps, kinds and malformed fields", () => {
-    for (const app of ["photoshop", "constructor", "__proto__", undefined]) {
-      assert.equal(parseGeneral({ ...general, app }), "unknown app");
+  it("cannot reference other issues or repositories", () => {
+    const parsed = parseReport({ ...report, note: "Like #12, other/repo#3, GH-4 and https://github.com/a/b/issues/5", summary: "See #9" });
+    if (typeof parsed === "string") throw new Error(parsed);
+    const { title, body } = issueFor(parsed);
+    for (const text of [title, body]) {
+      assert.doesNotMatch(text, /#\d|GH-\d|github\.com/i);
     }
-    assert.equal(parseGeneral({ ...general, kind: "rant" }), "kind must be bug or idea");
-    assert.equal(parseGeneral({ ...general, summary: " " }), "missing or overlong summary");
-    assert.equal(parseGeneral({ ...general, logs: "x".repeat(16_001) }), "overlong note or logs");
-    assert.equal(parseGeneral({ ...general, platform: undefined }), "missing appVersion or platform");
+    assert.ok(body.includes("other/repo#\u200b3"));
   });
 
-  it("are filed in the app's repository, and Woodshed reports in Woodshed's", async () => {
+  it("are refused for unknown apps, kinds and malformed fields", () => {
+    for (const app of ["photoshop", "constructor", "__proto__", undefined]) {
+      assert.equal(parseReport({ ...report, app }), "unknown app");
+    }
+    assert.equal(parseReport({ ...report, kind: "rant" }), "kind must be bug or idea");
+    assert.equal(parseReport({ ...report, summary: " " }), "missing or overlong summary");
+    assert.equal(parseReport({ ...report, logs: "x".repeat(16_001) }), "overlong note or logs");
+    assert.equal(parseReport({ ...report, platform: undefined }), "missing appVersion or platform");
+  });
+
+  it("are filed in the app's repository", async () => {
     const { pem } = await keyPair();
     for (const [body, repo] of [
-      [general, "callie"],
-      [{ ...general, app: "jot" }, "jot"],
-      [report, "woodshed"],
+      [report, "callie"],
+      [{ ...report, app: "jot" }, "jot"],
+      [{ ...report, app: "woodshed" }, "woodshed"],
     ] as const) {
       forgetToken();
       const { calls, fetcher } = fakeGitHub();
       assert.equal((await handle(post(body), env(pem), fetcher)).status, 201);
       assert.equal(calls[1].url, `https://api.github.com/repos/greylocklabs/${repo}/issues`);
     }
-    assert.equal((await handle(post({ ...general, app: "nope" }), env(pem), fakeGitHub().fetcher)).status, 400);
+    assert.equal((await handle(post({ ...report, app: "nope" }), env(pem), fakeGitHub().fetcher)).status, 400);
   });
 });
