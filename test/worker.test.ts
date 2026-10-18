@@ -58,7 +58,7 @@ const post = (body: unknown) =>
 
 beforeEach(() => forgetToken());
 
-describe("woodshed 0.4 reports", () => {
+describe("woodshed reports", () => {
   it("become the same issue the app's GitHub link opens, marked as sent from the app", () => {
     const parsed = parseReport(report);
     if (typeof parsed === "string") throw new Error(parsed);
@@ -190,7 +190,7 @@ describe("reports from any app", () => {
     assert.equal(parseGeneral({ ...general, platform: undefined }), "missing appVersion or platform");
   });
 
-  it("are filed in the app's repository, and old Woodshed reports in Woodshed's", async () => {
+  it("are filed in the app's repository, and Woodshed reports in Woodshed's", async () => {
     const { pem } = await keyPair();
     for (const [body, repo] of [
       [general, "callie"],

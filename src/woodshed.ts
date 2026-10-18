@@ -1,7 +1,7 @@
 import { inline, plain } from "./text.ts";
 
 /**
- * A problem report in the format Woodshed 0.4 and earlier send, with no app field. It matches the
+ * A problem report in the format Woodshed sends, with no app field. It matches the
  * app's Report, which renders the same title and body.
  */
 export interface WoodshedReport {

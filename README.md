@@ -24,8 +24,7 @@ issue's number and address. Nothing else is served.
 
 - `app` is `callie`, `jot` or `woodshed`; `kind` is `bug` or `idea`. `note`, `details` and `logs`
   are optional.
-- A report without `app` is read in the format Woodshed 0.4 and earlier send, and filed in
-  greylocklabs/woodshed.
+- A report without `app` is read in Woodshed's own format, and filed in greylocklabs/woodshed.
 - Each address may send five reports a minute. Text is defused so a report cannot mention anyone or
   reference other issues, and logs go in a folded code block.
 
@@ -40,15 +39,11 @@ npx wrangler dev  # run it locally
 
 ## Deploying
 
-Two workers run the same code: `greylocklabs-reports`, which the apps use, and `woodshed-reports`,
-the address Woodshed 0.4 and earlier send to.
-
 ```sh
 npx wrangler deploy
-npx wrangler deploy --env woodshed
 ```
 
-Each worker needs the GitHub App's private key once, as PKCS#8 PEM:
+The worker needs the GitHub App's private key once, as PKCS#8 PEM:
 
 ```sh
 openssl pkcs8 -topk8 -nocrypt -in greylocklabs-reports.private-key.pem |
