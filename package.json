@@ -1,0 +1,26 @@
+{
+  "name": "greylocklabs-reports",
+  "private": true,
+  "description": "Receives problem reports from Greylock Labs apps and files them as GitHub issues",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint:md": "markdownlint-cli2",
+    "commitlint": "commitlint --edit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261015.1",
+    "@commitlint/cli": "^21.0.0",
+    "@commitlint/config-conventional": "^21.0.0",
+    "@types/node": "26.6.5",
+    "markdownlint-cli2": "^0.23.3",
+    "typescript": "7.0.2",
+    "wrangler": "4.151.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

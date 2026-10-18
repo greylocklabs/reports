@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    uses: greylocklabs/.github/.github/workflows/commitlint.yml@v1
+
+  markdownlint:
+    uses: greylocklabs/.github/.github/workflows/markdownlint.yml@v1
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check and test the report service
+        run: |
+          npm run check
+          npm test
